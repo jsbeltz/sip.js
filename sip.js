@@ -542,7 +542,7 @@ function makeStreamTransport(protocol, connect, createServer, callback) {
       stream.end();
     });
 
-    stream.on('timeout',  function() { if(refs === 0) stream.end(); });
+    stream.on('timeout',  function() { if(refs === 0) stream.destroy(); });
     stream.setTimeout(120000);   
     stream.setMaxListeners(10000);
  
@@ -1322,7 +1322,7 @@ exports.create = function(options, callback) {
         var hop = parseUri(m.uri);
 
         if(typeof m.headers.route === 'string')
-          rq.headers.route = parsers.route({s: m.headers.route, i:0});
+          m.headers.route = parsers.route({s: m.headers.route, i:0});
  
         if(m.headers.route && m.headers.route.length > 0) {
           hop = parseUri(m.headers.route[0].uri);
@@ -1331,7 +1331,7 @@ exports.create = function(options, callback) {
           } 
           else if(hop.params.lr === undefined ) {
             m.headers.route.shift();
-            m.headers.route.push({uri: rq.uri});
+            m.headers.route.push({uri: m.uri});
             m.uri = hop;
           }
         }
@@ -1345,6 +1345,12 @@ exports.create = function(options, callback) {
             resolve(hop, callback);
         })(function(addresses) {
           if(m.method === 'ACK') {
+            if(!Array.isArray(m.headers.via))
+              m.headers.via = [];
+
+            if(m.headers.via.length === 0)
+              m.headers.via.unshift({params: {branch: generateBranch()}});
+            
             if(addresses.length === 0) {
               errorLog(new Error("ACK: couldn't resolve " + stringifyUri(m.uri)));
               return;
